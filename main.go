@@ -26,11 +26,10 @@ type cachedResult struct {
 }
 
 type statusPart struct {
-	Conclusion   string `json:"conclusion"`
-	Name         string `json:"name"`
-	Status       string `json:"status"`
-	WorkflowName string `json:"workflow_name"`
-	State        string `json:"state"`
+	Conclusion string `json:"conclusion"`
+	Name       string `json:"name"`
+	Status     string `json:"status"`
+	State      string `json:"state"`
 }
 
 func main() {
@@ -39,11 +38,11 @@ func main() {
 	signal.Notify(trap, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	go func() {
 		for {
-			allOfPRStatus, err := github.FetchPrStatus()
+			allOfPRStatus, err := github.FetchPRStatus()
 			if err != nil {
 				log.Fatal(err)
 			}
-			if err := checkPrStatus(allOfPRStatus); err != nil {
+			if err := checkPRStatus(allOfPRStatus); err != nil {
 				log.Fatal(err)
 			}
 			time.Sleep(interval)
@@ -58,7 +57,7 @@ func main() {
 	}
 }
 
-func checkPrStatus(result github.AllOfPRStatus) error {
+func checkPRStatus(result github.AllOfPRStatus) error {
 	fmt.Println("checking PR status")
 
 	for _, pr := range result.CreatedBy {
@@ -83,45 +82,22 @@ func checkPrStatus(result github.AllOfPRStatus) error {
 				fmt.Printf("cannot get action name/context: %v\n", action)
 				if failed {
 					msg := fmt.Sprintf("PR %s #%v failed", pr.Title, pr.Number)
-					if err := macos.Notify(msg); err != nil {
-						fmt.Printf("Notification failed: %s", msg)
-					}
+					notify(msg)
 				}
 				continue
 			}
 
-			before, exists := beforeResults[pr.Number].Checks[actionKey]
-			var current statusPart
-			if !exists {
-				current = statusPart{
-					Name:         action.Name,
-					WorkflowName: action.WorkflowName,
-					Conclusion:   action.Conclusion,
-					State:        action.State,
-					Status:       action.Status,
-				}
-				if failed {
-					msg := fmt.Sprintf("PR %s #%v %s failed", pr.Title, pr.Number, actionKey)
-					fmt.Println(msg)
-					if err := macos.Notify(msg); err != nil {
-						fmt.Printf("Notification failed: %s", msg)
-					}
-				}
-			} else {
-				current = statusPart{
-					Name:         before.Name,
-					WorkflowName: before.WorkflowName,
-					Conclusion:   action.Conclusion,
-					State:        action.State,
-					Status:       action.Status,
-				}
-				if !isSameState(before, current) && failed {
-					fmt.Printf("state changed to failure: %v -> %v\n", before, action)
-					msg := fmt.Sprintf("PR %s #%v %s failed", pr.Title, pr.Number, actionKey)
-					if err := macos.Notify(msg); err != nil {
-						fmt.Printf("Notification failed: %s", msg)
-					}
-				}
+			before, _ := beforeResults[pr.Number].Checks[actionKey]
+			current := statusPart{
+				Name:       action.Name,
+				Conclusion: action.Conclusion,
+				State:      action.State,
+				Status:     action.Status,
+			}
+			if !isSameState(before, current) && failed {
+				msg := fmt.Sprintf("PR %s #%v %s failed", pr.Title, pr.Number, actionKey)
+				fmt.Println(msg)
+				notify(msg)
 			}
 			beforeResults[pr.Number].Checks[actionKey] = current
 		}
@@ -145,4 +121,10 @@ func isSameState(s, t statusPart) bool {
 	return s.Conclusion == t.Conclusion &&
 		s.State == t.State &&
 		s.Status == t.Status
+}
+
+func notify(msg string) {
+	if err := macos.Notify(msg); err != nil {
+		fmt.Printf("Notification failed: %s\n", msg)
+	}
 }

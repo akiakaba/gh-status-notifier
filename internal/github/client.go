@@ -31,7 +31,7 @@ var fields = []string{
 	"updatedAt",
 }
 
-func FetchPrStatus() (AllOfPRStatus, error) {
+func FetchPRStatus() (AllOfPRStatus, error) {
 	cmd := exec.Command("gh", "pr", "status", "--json", strings.Join(fields, ","))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -42,6 +42,12 @@ func FetchPrStatus() (AllOfPRStatus, error) {
 		return resp, errors.Wrap(err, stderr.String())
 	}
 	data := stdout.Bytes()
+
+	// FOR DEV
+	//data, err := os.ReadFile("./.mynotes/fixtures/sample_response.json")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
 
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return resp, err
