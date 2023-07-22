@@ -42,9 +42,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if err := checkPRStatus(allOfPRStatus); err != nil {
-				log.Fatal(err)
-			}
+			checkPRStatus(allOfPRStatus)
 			time.Sleep(interval)
 		}
 	}()
@@ -57,7 +55,7 @@ func main() {
 	}
 }
 
-func checkPRStatus(result github.AllOfPRStatus) error {
+func checkPRStatus(result github.AllOfPRStatus) {
 	fmt.Println("checking PR status")
 
 	for _, pr := range result.CreatedBy {
@@ -87,7 +85,7 @@ func checkPRStatus(result github.AllOfPRStatus) error {
 				continue
 			}
 
-			before, _ := beforeResults[pr.Number].Checks[actionKey]
+			before := beforeResults[pr.Number].Checks[actionKey]
 			current := statusPart{
 				Name:       action.Name,
 				Conclusion: action.Conclusion,
@@ -102,8 +100,6 @@ func checkPRStatus(result github.AllOfPRStatus) error {
 			beforeResults[pr.Number].Checks[actionKey] = current
 		}
 	}
-
-	return nil
 }
 
 func genKey(action github.StatusCheckRollup) string {
